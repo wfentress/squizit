@@ -10,7 +10,7 @@ var io = require('socket.io')(http);
 var generateId = (function() {
   var count = 0;
   return function() {
-    return ++count;
+    return ++count + '';
   };
 })();
 
@@ -18,14 +18,14 @@ var rooms = [];
 var generateRoom = function() {
   var room = {};
   room.id = generateId();
-  room.playerIds = [];
+  room.players = [];
   return room;
 };
 
 // packs the room list and statistics onto the data message
 function addRoomsToData(data) {
   // filter to only rooms that can accept a new player
-  var availableRooms = rooms.filter(room => room.playerIds.length < MAX_PLAYERS);
+  var availableRooms = rooms.filter(room => room.players.length < MAX_PLAYERS);
 
   // if no rooms are available, create a new one
   if (availableRooms.length === 0) {
@@ -39,7 +39,7 @@ function addRoomsToData(data) {
   data.rooms = availableRooms.map((room, index) => ({
     roomId: room.id,
     roomIndex: index + 1,
-    playerCount: room.playerIds.length
+    playerCount: room.players.length
   }));
 
   // check out lines 42-52 of
@@ -53,16 +53,16 @@ function leaveRoom(roomToLeave, socket) {
   if (!roomToLeave) return;
 
   // remove the player from the room data
-  roomToLeave.playerIds = roomToLeave.playerIds.filter(id => id !== socket.id);
+  roomToLeave.players = roomToLeave.players.filter(player => player.id !== socket.id);
 
   // if the room is now empty, remove it from the room list
-  if (roomToLeave.playerIds.length === 0) {
+  if (roomToLeave.players.length === 0) {
     rooms = rooms.filter(room => room.id !== roomToLeave.id);
   } else {
     // otherwise, notify other players in the room of the disconnection
-    let data = {};
-    data.playerId = socket.id;
-    socket.broadcast.to(roomToLeave.id).emit('playerDisconnected', data);
+    let output = {};
+    output.playerId = socket.id;
+    socket.broadcast.to(roomToLeave.id).emit('playerDisconnected', output);
   }
 
   // remove the player from the socket.io room
@@ -73,20 +73,19 @@ app.use(express.static('.'));
 
 io.of('/squizit').on('connection', function(socket) {
   console.log('user connected');
+  socket.join('lobby');
 
   // send user their id and list of rooms
-  socket.on('playerConnect', function() {
-    var data = {};
-    data.playerId = socket.id;
-    addRoomsToData(data);
-    socket.emit('connectionReply', data);
-  });
+  var output = {};
+  output.playerId = socket.id;
+  addRoomsToData(output);
+  socket.emit('connectionReply', output);
 
   // sends player an updated room list
   socket.on('getRooms', function() {
-    var data = {};
-    addRoomsToData(data);
-    socket.emit('updatedRoomList', data);
+    var output = {};
+    addRoomsToData(output);
+    socket.emit('updatedRoomList', output);
   });
 
   // handle player disconnection
@@ -95,7 +94,7 @@ io.of('/squizit').on('connection', function(socket) {
 
     // find room being left
     var roomToLeave = rooms.find(room => {
-      return room.playerIds.any(id => id === socket.id);
+      return room.players.some(player => player.id === socket.id);
     });
 
     // handle the rest of the disconnection
@@ -105,18 +104,20 @@ io.of('/squizit').on('connection', function(socket) {
   // attempt to allow player to join room
   // on success, playerId is added to room and player is notified
   // on failure, player is notified
-  socket.on('joinRoom', function(data) {
+  socket.on('joinRoom', function(input) {
     // find the room being requested
-    var room = rooms.find(room => room.id === data.roomId);
+    var room = rooms.find(room => room.id === input.roomId);
 
     // verify room can be joined: must exist and not be full
-    if (!room || room.playerIds.length >= MAX_PLAYERS) {
-      socket.emit('connectionRefused');
+    if (!room || room.players.length >= MAX_PLAYERS) {
+      let output = {};
+      addRoomsToData(output);
+      socket.emit('connectionRefused', output);
       return;
     }
 
     // register player with room
-    room.playerIds.push(socket.id);
+    room.players.push({id: socket.id, name: input.name, ready: false});
     socket.join(room.id);
 
     // send verification
@@ -124,8 +125,8 @@ io.of('/squizit').on('connection', function(socket) {
   });
 
   // handle player leaving room manually
-  socket.on('leaveRoom', function(data) {
-    var roomToLeave = rooms.find(room => room.id === data.roomId);
+  socket.on('leaveRoom', function(input) {
+    var roomToLeave = rooms.find(room => room.id === input.roomId);
     leaveRoom(roomToLeave, socket);
   });
 });

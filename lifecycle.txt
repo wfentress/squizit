@@ -1,9 +1,6 @@
 Others                Server                 Client
 |                        | socket.io connection   |
 |                        |<-----------------------|
-|                        |                        |
-|                        | playerConnect          |
-|                        |<-----------------------|
 |                        |----------------------->|
 |                        | connectionReply        |
 |                        |                        |

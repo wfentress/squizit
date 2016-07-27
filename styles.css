@@ -1,0 +1,66 @@
+#logo {
+  margin: 20px 0 20px;
+  text-align: center;
+  font-family: 'Sniglet', cursive;
+  font-size: 72px;
+  text-shadow: 0 0 5px #fff, 0 0 30px #00c;
+  color: #f55;
+}
+#input {
+  position: absolute;
+  box-sizing: border-box;
+  height: 3em;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background-color: #ccf;
+  border: 1px solid #ccc;
+}
+#output {
+  box-sizing: border-box;
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 3em;
+  width: 100%;
+  padding: 0 10px 0 10px;
+  margin: 0;
+  list-style-type: none;
+  overflow-y: scroll;
+}
+.style1 {
+  font-family: 'Indie Flower', sans-serif;
+}
+.style2 {
+  font-family: 'Tillana', sans-serif;
+}
+.style3 {
+  font-family: 'Shadows Into Light', sans-serif;
+}
+.style4 {
+  font-family: 'Architects Daughter', sans-serif;
+}
+.style5 {
+  font-family: 'Gloria Hallelujah', sans-serif;
+}
+.style6 {
+  font-family: 'Rock Salt', sans-serif;
+}
+.style7 {
+  font-family: 'Covered By Your Grace', sans-serif;
+}
+.style8 {
+  font-family: 'Kalam', sans-serif;
+}
+.style9 {
+  font-family: 'Nothing You Could Do', sans-serif;
+}
+.style10 {
+  font-family: 'Waiting for the Sunrise', sans-serif;
+}
+.style11 {
+  font-family: 'Over the Rainbow', sans-serif;
+}
+.style12 {
+  font-family: 'Julee', sans-serif;
+}

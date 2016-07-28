@@ -2,6 +2,8 @@
 /* globals io */
 'use strict';
 var socket = null;
+var myId = null;
+var myName = null;
 var log = function(str) {
   return function(data) {
     console.log(str, data);
@@ -33,6 +35,7 @@ function handleInput(text) {
   switch (state) {
     case 'name input':
       output(`Hello ${text}`);
+      myName = text;
       output('Connecting...');
       socket = io('/squizit');
       wireUpHandlers(socket);
@@ -42,14 +45,17 @@ function handleInput(text) {
       break;
     case 'room selection':
       output(`Attempting to join room ${text}...`);
-      socket.emit('joinRoom', {roomId: text});
+      socket.emit('joinRoom', {roomId: text, name: myName});
       state = 'waiting for join';
       break;
     case 'waiting for join':
       output('Hold on, still trying to join room...');
       break;
-    case 'sentence entry':
-      output('yeah the game\'s not working yet hold on');
+    case 'not ready':
+      socket.emit('readyToStart', true);
+      break;
+    case 'ready':
+      socket.emit('readyToStart', false);
       break;
   }
 }
@@ -57,6 +63,7 @@ function handleInput(text) {
 function wireUpHandlers(socket) {
   socket.on('connectionReply', function(data) {
     output('Connected! Available rooms:');
+    myId = data.playerId;
     for (let i = 0; i < data.rooms.length; ++i) {
       output(`Room #${data.rooms[i].roomId}: ${data.rooms[i].playerCount}/10`);
     }
@@ -74,11 +81,26 @@ function wireUpHandlers(socket) {
     state = 'room selection';
   });
 
+  socket.on('updatedRoomList', function(data) {
+    if (state !== 'room selection') return;
+    // TODO DRY
+    for (let i = 0; i < data.rooms.length; ++i) {
+      output(`Room #${data.rooms[i].roomId}: ${data.rooms[i].playerCount}/10`);
+    }
+    output('Which room do you want?');
+  });
+
   socket.on('roomJoined', function(data) {
     output(`Joined room ${data.roomId}.`);
-    state = 'sentence entry';
+    state = 'not ready';
+  });
+
+  socket.on('readyStatus', function(data) {
+    output(`${data.name} is ${data.ready ? '' : 'not '}ready to start.`);
+    if (data.id === myId) {
+      state = `${data.ready ? '' : 'not '}ready`;
+    }
   });
 
   socket.on('playerDisconnected', log('playerDisconnected'));
-  socket.on('updatedRoomList', log('updatedRoomList'));
 }

@@ -14,6 +14,18 @@ var generateId = (function() {
   };
 })();
 
+// get the name of the game room a socket is in, or undefined if it's not
+// in a game room
+var getRoom = function(socket) {
+  var isGameRoom = (function() {
+    return function(room) {
+      return room !== socket.id && room !== 'lobby';
+    };
+  })();
+  return Object.keys(socket.rooms).find(isGameRoom);
+};
+
+// TODO make rooms a dictionary, not an array
 var rooms = [];
 var generateRoom = function() {
   var room = {};
@@ -67,6 +79,11 @@ function leaveRoom(roomToLeave, socket) {
 
   // remove the player from the socket.io room
   socket.leave(roomToLeave.id);
+  socket.join('lobby');
+
+  let output = {};
+  addRoomsToData(output);
+  io.of('/squizit').to('lobby').emit('updatedRoomList', output);
 }
 
 app.use(express.static('.'));
@@ -104,6 +121,8 @@ io.of('/squizit').on('connection', function(socket) {
   // attempt to allow player to join room
   // on success, playerId is added to room and player is notified
   // on failure, player is notified
+  // TODO nothing stopping a player from joining multiple rooms
+  // this is a problem
   socket.on('joinRoom', function(input) {
     // find the room being requested
     var room = rooms.find(room => room.id === input.roomId);
@@ -118,16 +137,35 @@ io.of('/squizit').on('connection', function(socket) {
 
     // register player with room
     room.players.push({id: socket.id, name: input.name, ready: false});
+    socket.leave('lobby');
     socket.join(room.id);
 
     // send verification
     socket.emit('roomJoined', {roomId: room.id});
+
+    let output = {};
+    addRoomsToData(output);
+    io.of('/squizit').to('lobby').emit('updatedRoomList', output);
   });
 
   // handle player leaving room manually
   socket.on('leaveRoom', function(input) {
     var roomToLeave = rooms.find(room => room.id === input.roomId);
     leaveRoom(roomToLeave, socket);
+  });
+
+  // update readiness status
+  // TODO actually start the game when everybody's ready
+  socket.on('readyToStart', function(ready) {
+    var roomId = getRoom(socket);
+    if (typeof roomId === 'undefined') return;
+    var player = rooms.find(room => room.id === roomId).players.find(player => player.id === socket.id);
+    player.ready = ready;
+    io.of('/squizit').to(roomId).emit('readyStatus', {
+      id: player.id,
+      name: player.name,
+      ready: player.ready
+    });
   });
 });
 

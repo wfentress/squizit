@@ -57,6 +57,9 @@ function handleInput(text) {
     case 'ready':
       socket.emit('readyToStart', false);
       break;
+    case 'sentence entry':
+      socket.emit('sentence', text);
+      break;
   }
 }
 
@@ -92,6 +95,7 @@ function wireUpHandlers(socket) {
 
   socket.on('roomJoined', function(data) {
     output(`Joined room ${data.roomId}.`);
+    output('Press Enter when you\'re ready to start.');
     state = 'not ready';
   });
 
@@ -100,6 +104,24 @@ function wireUpHandlers(socket) {
     if (data.id === myId) {
       state = `${data.ready ? '' : 'not '}ready`;
     }
+  });
+
+  socket.on('startGame', function() {
+    output('SQUIZIT START: Write the first sentence of a story!');
+    state = 'sentence entry';
+  });
+
+  socket.on('sentence', function(sentence) {
+    output('Continue the story!');
+    output(`<i>${sentence}</i>`);
+    state = 'sentence entry';
+  });
+
+  socket.on('story', function(story) {
+    output('Here\'s the story you started:');
+    output(story.join(' '));
+    output('Press Enter when you\'re ready to go again.');
+    state = 'not ready';
   });
 
   socket.on('playerDisconnected', log('playerDisconnected'));

@@ -155,7 +155,6 @@ io.of('/squizit').on('connection', function(socket) {
   });
 
   // update readiness status
-  // TODO actually start the game when everybody's ready
   socket.on('readyToStart', function(ready) {
     var roomId = getRoom(socket);
     if (typeof roomId === 'undefined') return;
@@ -166,13 +165,87 @@ io.of('/squizit').on('connection', function(socket) {
       name: player.name,
       ready: player.ready
     });
+    if (ready && rooms.find(room => room.id === roomId).players.every(p => p.ready)) {
+      initGame(rooms.find(room => room.id === roomId));
+      rooms.find(room => room.id === roomId).gameStarted = true;
+    }
+  });
+
+  // TODO this works as a template for in-game events
+  socket.on('sentence', function() {
+    var roomId = getRoom(socket);
+    if (typeof roomId === 'undefined') return;
+    var room = rooms.find(room => room.id === roomId);
+    if (!room.gameStarted) return;
+    handleSentence(socket, room, ...arguments);
   });
 });
+
+function initGame(room) {
+  room.round = 0;
+  room.stories = [];
+  for (let i = 0; i < room.players.length; ++i) {
+    room.stories.push([]);
+  }
+  shuffle(room.players);
+  for (let player of room.players) {
+    player.sentenceSubmitted = false;
+  }
+  io.of('/squizit').to(room.id).emit('startGame');
+}
+
+function handleSentence(socket, room, sentence) {
+  var playerIndex = room.players.findIndex(p => p.id === socket.id);
+  if (room.players[playerIndex].sentenceSubmitted) return;
+
+  // TODO this totally breaks if a player disconnects
+  var storyIndex = (playerIndex + room.round) % room.players.length;
+  room.stories[storyIndex].push(sentence);
+  console.log('got sentence from', socket.id, 'in room', room.id, sentence);
+  room.players[playerIndex].sentenceSubmitted = true;
+
+  if (room.players.every(p => p.sentenceSubmitted)) {
+    ++room.round;
+    if (room.round === room.players.length) {
+      sendCompletedStories(room);
+    } else {
+      promptForNextSentence(room);
+    }
+  }
+}
+
+function sendCompletedStories(room) {
+  room.gameStarted = false;
+  for (let i = 0; i < room.players.length; ++i) {
+    room.players[i].ready = false;
+    io.of('/squizit').to(room.players[i].id).emit('story', room.stories[i]);
+  }
+}
+
+function promptForNextSentence(room) {
+  console.log('round', room.round);
+  console.log('# players', room.players.length);
+  for (let i = 0; i < room.players.length; ++i) {
+    room.players[i].sentenceSubmitted = false;
+    let previousIndex = (room.players.length + i + (room.round - 2)) % room.players.length;
+    let target = room.players[i].id;
+    io.of('/squizit').to(target).emit('sentence', room.stories[previousIndex][room.round - 1]);
+  }
+}
 
 http.listen(8000, function() {
   console.log('listening on *:8000');
 });
 
+function shuffle(a) {
+  var j, x, i;
+  for (i = a.length; i; i--) {
+    j = Math.floor(Math.random() * i);
+    x = a[i - 1];
+    a[i - 1] = a[j];
+    a[j] = x;
+  }
+}
 /*
 <!DOCTYPE html>
 <html lang="en">

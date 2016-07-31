@@ -18,6 +18,13 @@ var output = (function() {
     outUl.scrollTop = outUl.scrollHeight;
   };
 })();
+var escHTML = (function() {
+  var div = document.createElement('div');
+  return function(str) {
+    div.textContent = str;
+    return div.innerHTML;
+  };
+})();
 document.getElementById('input').addEventListener('keydown', function(e) {
   if (e.key !== 'Enter') return;
   e.preventDefault();
@@ -29,12 +36,11 @@ document.getElementById('input').addEventListener('keydown', function(e) {
 });
 
 // This whole thing is quick and dirty.
-// Check out that unescaped user input.
 var state = 'name input';
 function handleInput(text) {
   switch (state) {
     case 'name input':
-      output(`Hello ${text}`);
+      output(`Hello ${escHTML(text)}`);
       myName = text;
       output('Connecting...');
       socket = io('/squizit');
@@ -44,7 +50,7 @@ function handleInput(text) {
       output('Hold on, still trying to connect...');
       break;
     case 'room selection':
-      output(`Attempting to join room ${text}...`);
+      output(`Attempting to join room ${escHTML(text)}...`);
       socket.emit('joinRoom', {roomId: text, name: myName});
       state = 'waiting for join';
       break;
@@ -100,7 +106,7 @@ function wireUpHandlers(socket) {
   });
 
   socket.on('readyStatus', function(data) {
-    output(`${data.name} is ${data.ready ? '' : 'not '}ready to start.`);
+    output(`${escHTML(data.name)} is ${data.ready ? '' : 'not '}ready to start.`);
     if (data.id === myId) {
       state = `${data.ready ? '' : 'not '}ready`;
     }
@@ -112,14 +118,14 @@ function wireUpHandlers(socket) {
   });
 
   socket.on('sentence', function(sentence) {
-    output('Continue the story!');
-    output(`<i>${sentence}</i>`);
+    output('Continue this other story!');
+    output(`<i>...${escHTML(sentence)}</i>`);
     state = 'sentence entry';
   });
 
   socket.on('story', function(story) {
     output('Here\'s the story you started:');
-    output(story.join(' '));
+    output(escHTML(story.join(' ')));
     output('Press Enter when you\'re ready to go again.');
     state = 'not ready';
   });

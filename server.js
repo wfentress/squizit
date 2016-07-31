@@ -188,6 +188,7 @@ function initGame(room) {
     room.stories.push([]);
   }
   shuffle(room.players);
+  console.log('player order', room.players.map(p => p.name));
   for (let player of room.players) {
     player.sentenceSubmitted = false;
   }
@@ -227,9 +228,10 @@ function promptForNextSentence(room) {
   console.log('# players', room.players.length);
   for (let i = 0; i < room.players.length; ++i) {
     room.players[i].sentenceSubmitted = false;
-    let previousIndex = (room.players.length + i + (room.round - 2)) % room.players.length;
+    let storyIndex = (i + room.round) % room.players.length;
     let target = room.players[i].id;
-    io.of('/squizit').to(target).emit('sentence', room.stories[previousIndex][room.round - 1]);
+    console.log(`sending ${room.players[i].name} stories[${storyIndex}][${room.round -1}]`);
+    io.of('/squizit').to(target).emit('sentence', room.stories[storyIndex][room.round - 1]);
   }
 }
 
